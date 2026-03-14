@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Translator</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="header">
+      <span class="logo">🌐</span>
+      <h1>AI Translator</h1>
+    </header>
+
+    <section class="section">
+      <label class="label" for="apiKey">API Key</label>
+      <div class="input-wrap">
+        <input
+          type="password"
+          id="apiKey"
+          placeholder="sk-... hoặc key nhà cung cấp"
+          autocomplete="off"
+        />
+        <button type="button" id="toggleKey" class="btn-icon" title="Hiện/ẩn key">
+          👁
+        </button>
+      </div>
+      <p class="hint">Key được lưu an toàn trên thiết bị (Chrome Storage).</p>
+      <button type="button" id="saveKey" class="btn btn-primary">Lưu API Key</button>
+      <p id="saveStatus" class="status" aria-live="polite"></p>
+    </section>
+
+    <section class="section">
+      <label class="label" for="provider">Nhà cung cấp</label>
+      <select id="provider" class="select">
+        <option value="openai">OpenAI</option>
+        <option value="gemini">Gemini (Google)</option>
+        <option value="claude">Claude (Anthropic)</option>
+        <option value="deepseek">DeepSeek</option>
+      </select>
+      <label class="label" for="model" style="margin-top:12px">Model</label>
+      <select id="model" class="select"></select>
+      <p class="hint" style="margin-top:8px">Lưu lựa chọn vào Chrome Storage.</p>
+    </section>
+
+    <section class="section">
+      <p class="current-model" id="currentModelLabel">Model đang dùng: —</p>
+      <div class="token-row">
+        <span class="label">Token đã dùng (nhà cung cấp này)</span>
+        <span id="tokenCount" class="token-count">0</span>
+      </div>
+      <div class="token-row">
+        <span class="label">Số tiền đã tiêu (ước tính)</span>
+        <span id="costDisplay" class="cost-display">$0.00</span>
+      </div>
+      <button type="button" id="resetTokens" class="btn btn-ghost btn-sm">Đặt lại</button>
+    </section>
+
+    <section class="section actions">
+      <button type="button" id="translateBtn" class="btn btn-accent">
+        Dịch toàn trang
+      </button>
+    </section>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Translator - Sidebar</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <header class="header">
+      <span class="logo">🌐</span>
+      <h1>AI Translator</h1>
+      <p class="subtitle">Sidebar</p>
+    </header>
+
+    <main class="main">
+      <section class="section">
+        <label class="label" for="apiKey">OpenAI API Key</label>
+        <div class="input-wrap">
+          <input
+            type="password"
+            id="apiKey"
+            placeholder="sk-..."
+            autocomplete="off"
+          />
+          <button type="button" id="toggleKey" class="btn-icon" title="Hiện/ẩn">
+            👁
+          </button>
+        </div>
+        <p class="hint">Lưu trên thiết bị qua Chrome Storage. Chỉ bạn có quyền truy cập.</p>
+        <button type="button" id="saveKey" class="btn btn-primary">Lưu API Key</button>
+        <p id="saveStatus" class="status" aria-live="polite"></p>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">Cách dùng</h2>
+        <ul class="tips">
+          <li><strong>Dịch đoạn:</strong> Bôi đen text → Chuột phải → "AI Translator: Dịch đoạn được chọn"</li>
+          <li><strong>Dịch trang:</strong> Mở popup (click icon) → "Dịch toàn trang"</li>
+        </ul>
+      </section>
+    </main>
+
+    <script src="sidepanel.js"></script>
+  </body>
+</html>

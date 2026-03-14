@@ -1,0 +1,157 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  color: #1a1a1a;
+  background: #f8fafc;
+  min-height: 100vh;
+}
+
+.header {
+  padding: 20px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #f1f5f9;
+}
+
+.logo {
+  font-size: 28px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.main {
+  padding: 16px 20px 24px;
+}
+
+.section {
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+  margin: 0 0 10px;
+}
+
+.label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #334155;
+}
+
+.input-wrap {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.input-wrap input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  background: #fff;
+}
+
+.input-wrap input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.input-wrap input::placeholder {
+  color: #94a3b8;
+}
+
+.btn-icon {
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.btn-icon:hover {
+  background: #f1f5f9;
+}
+
+.hint {
+  margin: 8px 0 12px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.btn {
+  display: inline-block;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-primary {
+  background: #3b82f6;
+  color: #fff;
+  width: 100%;
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+}
+
+.status {
+  margin-top: 10px;
+  font-size: 12px;
+  min-height: 18px;
+}
+
+.status.success {
+  color: #059669;
+}
+
+.status.error {
+  color: #dc2626;
+}
+
+.tips {
+  margin: 0;
+  padding-left: 18px;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.tips li {
+  margin-bottom: 8px;
+}
+
+.tips strong {
+  color: #334155;
+}
