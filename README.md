@@ -8,6 +8,7 @@ Dịch trang web và đoạn text bằng AI (OpenAI, Gemini, Claude, DeepSeek). 
 
 - **Dịch đoạn được chọn**: Bôi đen văn bản → chuột phải → chọn **"AI Translator: Dịch đoạn được chọn"**. Bản dịch hiển thị ngay dưới đoạn gốc (không thay thế).
 - **Dịch toàn trang**: Mở popup extension → nhấn **"Dịch toàn trang"** (dịch nội dung trang hiện tại).
+  (Lưu ý: Việc dịch toàn trang sẽ ngốn 1 lượng token rất lớn dù bản thân tôi đã limit số lượng token ở mức 1000. Do vậy cá nhân tôi không khuyến khích các bạn dùng chức năng này trừ khi bạn đảm bảo được mặt tài chính của bạn hoặc những trường hợp bạn quá lười đọc lần lượt từng đoạn 1 =))))
 - **Nhiều nhà cung cấp**: Chọn OpenAI, Gemini (Google), Claude (Anthropic) hoặc DeepSeek; chọn model tương ứng.
 - **Bảo mật**: API key chỉ lưu trong Chrome Storage trên máy của bạn, không gửi đi nơi khác.
 - **Theo dõi sử dụng**: Xem token đã dùng và số tiền ước tính (USD) theo từng nhà cung cấp, có nút đặt lại.

@@ -1,31 +1,48 @@
 // Một listener duy nhất: xử lý cả dịch toàn trang và dịch đoạn được bôi đen
 chrome.runtime.onMessage.addListener((msg) => {
   try {
-    // Dịch toàn trang
+    // Dịch toàn trang: cùng logic dịch đoạn chọn — lấy từng block, gọi API, chèn bản dịch bên dưới
     if (msg.action === "translatePage") {
-      const nodes = getNodesText();
-      console.log("Total nodes:", nodes.length);
-      const texts = nodes.map((n) => n.nodeValue);
-      console.log(texts);
-      console.log("Extension connected! Total nodes: " + nodes.length);
+      const segments = getAllBlocksWithText();
+      if (!segments.length) {
+        console.log("[AI Translator] Trang không có block text để dịch.");
+        return;
+      }
+
+      const texts = segments.map((s) => s.text);
+      const blocks = segments.map((s) => s.block);
+      const loadingEls = showLoadingBelowEachBlock(blocks);
 
       chrome.runtime.sendMessage(
         {
-          action: "translateText",
-          texts: texts,
+          action: "translateSelections",
+          texts,
+          targetLang: "vi",
         },
         (response) => {
+          removeLoadings(loadingEls);
           if (chrome.runtime.lastError) {
             console.error("[AI Translator]", chrome.runtime.lastError.message);
+            alert("Lỗi kết nối. Mở trang web bình thường rồi thử lại.");
             return;
           }
-          if (!response || !Array.isArray(response.translated)) {
-            console.error(
-              "[AI Translator] Không nhận được bản dịch từ background.",
-            );
+          if (response && response.error) {
+            console.error("[AI Translator]", response.error);
+            alert(response.error);
             return;
           }
-          replaceTexts(nodes, response.translated);
+          const translated = response && response.translated;
+          if (
+            !Array.isArray(translated) ||
+            translated.length !== blocks.length
+          ) {
+            console.error("[AI Translator] Số bản dịch không khớp số block.");
+            alert("Dịch không hoàn tất (số đoạn không khớp).");
+            return;
+          }
+          blocks.forEach((block, i) => {
+            insertTranslationAfterElement(block, translated[i]);
+          });
         },
       );
     }
@@ -91,14 +108,33 @@ chrome.runtime.onMessage.addListener((msg) => {
   }
 });
 
-function replaceTexts(nodes, translated) {
-  nodes.forEach((node, i) => {
-    node.nodeValue = translated[i];
-  });
-}
-
 const BLOCK_SELECTOR =
-  "p, div, h1, h2, h3, h4, h5, h6, li, td, th, section, article, blockquote";
+  "p, div, h1, h2, h3, h4, h5, h6, li, td, th, section, article, blockquote, a";
+
+/** Lấy tất cả block có text trên trang (chỉ block “trong cùng”), dùng cho dịch toàn trang */
+function getAllBlocksWithText() {
+  const blocks = [];
+  const walker = document.createTreeWalker(
+    document.body,
+    NodeFilter.SHOW_ELEMENT,
+    null,
+    false,
+  );
+  let el;
+  while ((el = walker.nextNode())) {
+    if (!el.matches || !el.matches(BLOCK_SELECTOR)) continue;
+    const text = (el.textContent || "").trim();
+    if (!text) continue;
+    blocks.push({ block: el, text });
+  }
+  const innermost = blocks.filter((b) => {
+    return !blocks.some(
+      (other) =>
+        other.block !== b.block && b.block.contains(other.block),
+    );
+  });
+  return innermost;
+}
 
 // Lấy danh sách block nằm trong range và đoạn text được chọn trong từng block (theo thứ tự document)
 function getBlocksAndSelectedTextInRange(range) {
@@ -230,29 +266,3 @@ function insertTranslationAfterElement(insertAnchor, translated) {
   }
 }
 
-// Hàm lấy nodes text trong web
-function getNodesText() {
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-
-  const nodes = [];
-  let node;
-  while ((node = walker.nextNode())) {
-    const val = node.nodeValue;
-    if (
-      val &&
-      typeof val.trim === "function" &&
-      val.trim().length > 0 &&
-      isValidNode(node)
-    ) {
-      nodes.push(node);
-    }
-  }
-  return nodes;
-}
-
-function isValidNode(node) {
-  const parent = node.parentElement;
-  if (!parent || !parent.tagName) return false;
-  const blacklistTags = ["script", "style", "textarea", "pre", "code"];
-  return !blacklistTags.includes(parent.tagName.toLowerCase());
-}

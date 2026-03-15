@@ -21,16 +21,6 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 // Lắng nghe message từ content script
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  // Dịch toàn trang (echo demo)
-  if (msg.action === "translateText") {
-    const texts = msg.texts || [];
-    const translated = texts.map(
-      (t) => "[Dịch: " + (t || "").slice(0, 30) + "...]",
-    );
-    sendResponse({ translated });
-    return true;
-  }
-
   // Dịch một đoạn (giữ tương thích cũ)
   if (msg.action === "translateSelection") {
     const text = msg.text || "";
