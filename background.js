@@ -131,9 +131,124 @@ async function addUsageByProvider(provider, promptTokens, completionTokens, mode
   );
 }
 
+const SYSTEM_PROMPT = (targetLang) =>
+  `You are a translation engine. Always translate the user text to ${targetLang}. Only return the translated text, no explanations.`;
+
+/** OpenAI: https://api.openai.com/v1/chat/completions */
+async function translateWithOpenAI(apiKey, model, text, targetLang) {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT(targetLang) },
+        { role: "user", content: text },
+      ],
+    }),
+  });
+  if (!res.ok) throw new Error("OpenAI: " + (await res.text()));
+  const data = await res.json();
+  const choice = data.choices?.[0];
+  const content = choice?.message?.content?.trim() ?? "";
+  const usage = data.usage || {};
+  return {
+    text: content,
+    promptTokens: usage.prompt_tokens || 0,
+    completionTokens: usage.completion_tokens || 0,
+  };
+}
+
+/** Google Gemini: https://generativelanguage.googleapis.com/v1beta/models/...:generateContent */
+async function translateWithGemini(apiKey, model, text, targetLang) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text }] }],
+      systemInstruction: {
+        parts: [{ text: SYSTEM_PROMPT(targetLang) }],
+      },
+    }),
+  });
+  if (!res.ok) throw new Error("Gemini: " + (await res.text()));
+  const data = await res.json();
+  const candidate = data.candidates?.[0];
+  const part = candidate?.content?.parts?.[0];
+  const content = part?.text?.trim() ?? "";
+  const usage = data.usageMetadata || {};
+  const promptTokens = usage.promptTokenCount || 0;
+  const completionTokens = usage.candidatesTokenCount ?? usage.totalTokenCount ?? 0;
+  return {
+    text: content,
+    promptTokens,
+    completionTokens,
+  };
+}
+
+/** Anthropic Claude: https://api.anthropic.com/v1/messages */
+async function translateWithClaude(apiKey, model, text, targetLang) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 1024,
+      system: SYSTEM_PROMPT(targetLang),
+      messages: [{ role: "user", content: text }],
+    }),
+  });
+  if (!res.ok) throw new Error("Claude: " + (await res.text()));
+  const data = await res.json();
+  const block = data.content?.[0];
+  const content = block?.type === "text" ? block.text?.trim() ?? "" : "";
+  const usage = data.usage || {};
+  return {
+    text: content,
+    promptTokens: usage.input_tokens || 0,
+    completionTokens: usage.output_tokens || 0,
+  };
+}
+
+/** DeepSeek: OpenAI-compatible, https://api.deepseek.com/v1/chat/completions */
+async function translateWithDeepSeek(apiKey, model, text, targetLang) {
+  const res = await fetch("https://api.deepseek.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT(targetLang) },
+        { role: "user", content: text },
+      ],
+    }),
+  });
+  if (!res.ok) throw new Error("DeepSeek: " + (await res.text()));
+  const data = await res.json();
+  const choice = data.choices?.[0];
+  const content = choice?.message?.content?.trim() ?? "";
+  const usage = data.usage || {};
+  return {
+    text: content,
+    promptTokens: usage.prompt_tokens || 0,
+    completionTokens: usage.completion_tokens || 0,
+  };
+}
+
 async function translateWithGPT(text, targetLang) {
   const data = await getStorage([STORAGE_KEY, STORAGE_PROVIDER, STORAGE_MODEL]);
-  const apiKey = data[STORAGE_KEY] || "";
+  const apiKey = (data[STORAGE_KEY] || "").trim();
   const provider = data[STORAGE_PROVIDER] || "openai";
   const model = data[STORAGE_MODEL] || "gpt-4o-mini";
 
@@ -141,63 +256,36 @@ async function translateWithGPT(text, targetLang) {
     throw new Error("Chưa cấu hình API key. Mở popup để lưu API key.");
   }
 
-  if (provider !== "openai") {
-    throw new Error(`Chưa hỗ trợ nhà cung cấp "${provider}". Hiện chỉ dùng OpenAI.`);
+  let result;
+  switch (provider) {
+    case "openai":
+      result = await translateWithOpenAI(apiKey, model, text, targetLang);
+      break;
+    case "gemini":
+      result = await translateWithGemini(apiKey, model, text, targetLang);
+      break;
+    case "claude":
+      result = await translateWithClaude(apiKey, model, text, targetLang);
+      break;
+    case "deepseek":
+      result = await translateWithDeepSeek(apiKey, model, text, targetLang);
+      break;
+    default:
+      throw new Error(`Chưa hỗ trợ nhà cung cấp "${provider}". Chọn: openai, gemini, claude, deepseek.`);
   }
 
-  const body = {
-    model: model,
-    messages: [
-      {
-        role: "system",
-        content: `You are a translation engine. Always translate the user text to ${targetLang}. Only return the translated text, no explanations.`,
-      },
-      {
-        role: "user",
-        content: text,
-      },
-    ],
-  };
-
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error("OpenAI error: " + errText);
-  }
-
-  const responseData = await res.json();
-
-  // Log raw response để debug nếu cần
-  console.log("[AI Translator][GPT raw response]", responseData);
-
-  // Lưu token và số tiền theo nhà cung cấp (bảng giá từng model)
-  if (responseData.usage) {
-    const promptTokens = responseData.usage.prompt_tokens || 0;
-    const completionTokens = responseData.usage.completion_tokens || 0;
-    const totalTokens =
-      responseData.usage.total_tokens || promptTokens + completionTokens;
-    await addUsageByProvider(provider, promptTokens, completionTokens, model);
-    const costUSD = getCostUSD(provider, model, promptTokens, completionTokens);
+  if (result.promptTokens > 0 || result.completionTokens > 0) {
+    await addUsageByProvider(provider, result.promptTokens, result.completionTokens, model);
+    const costUSD = getCostUSD(provider, model, result.promptTokens, result.completionTokens);
     console.log(
       "[AI Translator][Usage] provider=",
       provider,
       "totalTokens=",
-      totalTokens,
+      result.promptTokens + result.completionTokens,
       "≈ costUSD=",
       costUSD.toFixed(6),
     );
   }
 
-  const choice = responseData.choices && responseData.choices[0];
-  return choice && choice.message && choice.message.content
-    ? choice.message.content.trim()
-    : "";
+  return result.text;
 }

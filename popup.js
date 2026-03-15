@@ -4,6 +4,14 @@ const STORAGE_MODEL = "ai_translator_model";
 const STORAGE_TOKEN_BY_PROVIDER = "token_usage_by_provider";
 const STORAGE_COST_BY_PROVIDER = "cost_by_provider";
 
+/** Link lấy API key theo từng nhà cung cấp */
+const PROVIDER_API_LINKS = {
+  openai: { url: "https://platform.openai.com/api-keys", label: "OpenAI" },
+  gemini: { url: "https://aistudio.google.com/apikey", label: "Google AI Studio" },
+  claude: { url: "https://console.anthropic.com/settings/keys", label: "Anthropic" },
+  deepseek: { url: "https://platform.deepseek.com/api_keys", label: "DeepSeek" },
+};
+
 const PROVIDER_MODELS = {
   openai: [
     { value: "gpt-4o-mini", label: "gpt-4o-mini" },
@@ -38,6 +46,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const costDisplayEl = document.getElementById("costDisplay");
   const resetTokensBtn = document.getElementById("resetTokens");
   const currentModelLabel = document.getElementById("currentModelLabel");
+  const providerLinkEl = document.getElementById("providerLink");
+
+  function updateProviderLink(provider) {
+    if (!providerLinkEl) return;
+    const info = PROVIDER_API_LINKS[provider] || { url: "#", label: "—" };
+    providerLinkEl.href = info.url;
+    providerLinkEl.textContent = info.label;
+  }
 
   function getModelLabel(provider, modelValue) {
     const models = PROVIDER_MODELS[provider] || PROVIDER_MODELS.openai;
@@ -100,6 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const model = data[STORAGE_MODEL] || "gpt-4o-mini";
         providerSelect.value = provider;
         fillModelSelect(provider);
+        updateProviderLink(provider);
         if (data[STORAGE_MODEL]) modelSelect.value = data[STORAGE_MODEL];
         const tokenByProvider = data[STORAGE_TOKEN_BY_PROVIDER] || {};
         const costByProvider = data[STORAGE_COST_BY_PROVIDER] || {};
@@ -134,6 +151,7 @@ document.addEventListener("DOMContentLoaded", () => {
   providerSelect.addEventListener("change", () => {
     const provider = providerSelect.value;
     fillModelSelect(provider);
+    updateProviderLink(provider);
     const modelValue = modelSelect.value;
     chrome.storage.local.set({
       [STORAGE_PROVIDER]: provider,
