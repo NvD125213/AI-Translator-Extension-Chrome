@@ -14,7 +14,9 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== "ai-translator-selection" || !tab?.id) return;
   chrome.tabs.sendMessage(tab.id, { action: "translateSelection" }, () => {
     if (chrome.runtime.lastError) {
-      console.warn("[AI Translator] Mở trang web bình thường (http/https) rồi bôi đen và thử lại.");
+      console.warn(
+        "[AI Translator] Mở trang web bình thường (http/https) rồi bôi đen và thử lại.",
+      );
     }
   });
 });
@@ -96,16 +98,26 @@ function getCostUSD(provider, model, promptTokens, completionTokens) {
   return inputCost + outputCost;
 }
 
-async function addUsageByProvider(provider, promptTokens, completionTokens, model) {
+async function addUsageByProvider(
+  provider,
+  promptTokens,
+  completionTokens,
+  model,
+) {
   const totalTokens = promptTokens + completionTokens;
   const costUSD = getCostUSD(provider, model, promptTokens, completionTokens);
-  const data = await getStorage([STORAGE_TOKEN_BY_PROVIDER, STORAGE_COST_BY_PROVIDER]);
+  const data = await getStorage([
+    STORAGE_TOKEN_BY_PROVIDER,
+    STORAGE_COST_BY_PROVIDER,
+  ]);
   const tokenByProvider =
-    data[STORAGE_TOKEN_BY_PROVIDER] && typeof data[STORAGE_TOKEN_BY_PROVIDER] === "object"
+    data[STORAGE_TOKEN_BY_PROVIDER] &&
+    typeof data[STORAGE_TOKEN_BY_PROVIDER] === "object"
       ? { ...data[STORAGE_TOKEN_BY_PROVIDER] }
       : {};
   const costByProvider =
-    data[STORAGE_COST_BY_PROVIDER] && typeof data[STORAGE_COST_BY_PROVIDER] === "object"
+    data[STORAGE_COST_BY_PROVIDER] &&
+    typeof data[STORAGE_COST_BY_PROVIDER] === "object"
       ? { ...data[STORAGE_COST_BY_PROVIDER] }
       : {};
   tokenByProvider[provider] = (tokenByProvider[provider] || 0) + totalTokens;
@@ -116,13 +128,21 @@ async function addUsageByProvider(provider, promptTokens, completionTokens, mode
         [STORAGE_TOKEN_BY_PROVIDER]: tokenByProvider,
         [STORAGE_COST_BY_PROVIDER]: costByProvider,
       },
-      r
-    )
+      r,
+    ),
   );
 }
 
 const SYSTEM_PROMPT = (targetLang) =>
-  `You are a translation engine. Always translate the user text to ${targetLang}. Only return the translated text, no explanations.`;
+  `You are a professional translation engine. Translate the user text into ${targetLang} with these rules:
+- Preserve the original meaning as accurately as possible, do not summarize or add new ideas.
+- Make the translation natural and fluent in the target language, but do not over-simplify technical terms.
+- Keep names, brand names, code snippets, and URLs unchanged unless a localized form is clearly more appropriate.
+- For difficult terms, regional slang, and domain-specific technical jargon, prefer to KEEP the original English term (or include it in parentheses) if it improves clarity, instead of forcing an unnatural translation.
+- When a term has a well-known, precise translation in ${targetLang}, use that precise translation (and optionally keep the original term in parentheses if helpful).
+- Preserve important formatting such as line breaks and list structure when reasonable.
+- If the text is already in ${targetLang}, only clean up grammar and wording slightly if needed.
+Return ONLY the translated text, do NOT add explanations, quotes, or extra comments.`;
 
 /** OpenAI: https://api.openai.com/v1/chat/completions */
 async function translateWithOpenAI(apiKey, model, text, targetLang) {
@@ -172,7 +192,8 @@ async function translateWithGemini(apiKey, model, text, targetLang) {
   const content = part?.text?.trim() ?? "";
   const usage = data.usageMetadata || {};
   const promptTokens = usage.promptTokenCount || 0;
-  const completionTokens = usage.candidatesTokenCount ?? usage.totalTokenCount ?? 0;
+  const completionTokens =
+    usage.candidatesTokenCount ?? usage.totalTokenCount ?? 0;
   return {
     text: content,
     promptTokens,
@@ -199,7 +220,7 @@ async function translateWithClaude(apiKey, model, text, targetLang) {
   if (!res.ok) throw new Error("Claude: " + (await res.text()));
   const data = await res.json();
   const block = data.content?.[0];
-  const content = block?.type === "text" ? block.text?.trim() ?? "" : "";
+  const content = block?.type === "text" ? (block.text?.trim() ?? "") : "";
   const usage = data.usage || {};
   return {
     text: content,
@@ -261,12 +282,24 @@ async function translateWithGPT(text, targetLang) {
       result = await translateWithDeepSeek(apiKey, model, text, targetLang);
       break;
     default:
-      throw new Error(`Chưa hỗ trợ nhà cung cấp "${provider}". Chọn: openai, gemini, claude, deepseek.`);
+      throw new Error(
+        `Chưa hỗ trợ nhà cung cấp "${provider}". Chọn: openai, gemini, claude, deepseek.`,
+      );
   }
 
   if (result.promptTokens > 0 || result.completionTokens > 0) {
-    await addUsageByProvider(provider, result.promptTokens, result.completionTokens, model);
-    const costUSD = getCostUSD(provider, model, result.promptTokens, result.completionTokens);
+    await addUsageByProvider(
+      provider,
+      result.promptTokens,
+      result.completionTokens,
+      model,
+    );
+    const costUSD = getCostUSD(
+      provider,
+      model,
+      result.promptTokens,
+      result.completionTokens,
+    );
     console.log(
       "[AI Translator][Usage] provider=",
       provider,
