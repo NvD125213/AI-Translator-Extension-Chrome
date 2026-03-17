@@ -41,7 +41,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === "translateSelections") {
     const texts = Array.isArray(msg.texts) ? msg.texts : [];
     const targetLang = msg.targetLang || "vi";
-    Promise.all(texts.map((t) => translateWithGPT(t || "", targetLang)))
+    translateSelectionsWithContext(texts, targetLang)
       .then((translated) => {
         sendResponse({ translated });
       })
@@ -311,4 +311,111 @@ async function translateWithGPT(text, targetLang) {
   }
 
   return result.text;
+}
+
+// Gom các đoạn ngắn lại thành cụm để dịch cùng context
+function groupTextsForContext(texts, maxCharsPerGroup = 600) {
+  const groups = [];
+  let currentGroup = { indices: [], text: "", length: 0 };
+
+  texts.forEach((t, idx) => {
+    const chunk = String(t || "");
+    const len = chunk.length;
+
+    // Nếu đoạn hiện tại là rỗng thì bỏ qua luôn
+    if (!chunk.trim()) {
+      return;
+    }
+
+    // Nếu đoạn quá dài, tách thành group riêng
+    if (len >= maxCharsPerGroup) {
+      if (currentGroup.indices.length) {
+        groups.push(currentGroup);
+        currentGroup = { indices: [], text: "", length: 0 };
+      }
+      groups.push({ indices: [idx], text: chunk, length: len });
+      return;
+    }
+
+    const separator = currentGroup.indices.length ? "\n\n" : "";
+    if (currentGroup.length + separator.length + len > maxCharsPerGroup) {
+      // Đẩy group cũ, bắt đầu group mới
+      if (currentGroup.indices.length) {
+        groups.push(currentGroup);
+      }
+      currentGroup = {
+        indices: [idx],
+        text: chunk,
+        length: len,
+      };
+    } else {
+      currentGroup.indices.push(idx);
+      currentGroup.text += separator + chunk;
+      currentGroup.length += separator.length + len;
+    }
+  });
+
+  if (currentGroup.indices.length) {
+    groups.push(currentGroup);
+  }
+
+  return groups;
+}
+
+// Dịch nhiều đoạn nhưng tận dụng context trong cùng một cụm
+async function translateSelectionsWithContext(texts, targetLang) {
+  if (!Array.isArray(texts) || !texts.length) return [];
+
+  const groups = groupTextsForContext(texts);
+  const results = new Array(texts.length).fill("");
+
+  for (const group of groups) {
+    // Group chỉ có 1 đoạn → dịch như cũ
+    if (group.indices.length === 1) {
+      const i = group.indices[0];
+      results[i] = await translateWithGPT(texts[i] || "", targetLang);
+      continue;
+    }
+
+    // Ghép nhiều đoạn bằng dòng trống, yêu cầu model giữ ngắt dòng
+    const mergedText = group.indices.map((i) => texts[i] || "").join("\n\n");
+    let mergedTranslated;
+    try {
+      mergedTranslated = await translateWithGPT(mergedText, targetLang);
+    } catch (e) {
+      // Nếu lỗi, fallback dịch từng đoạn
+      const perSegment = await Promise.all(
+        group.indices.map((i) => translateWithGPT(texts[i] || "", targetLang)),
+      );
+      perSegment.forEach((text, idx) => {
+        const i = group.indices[idx];
+        results[i] = text;
+      });
+      continue;
+    }
+
+    // Tách lại theo dòng trống
+    const parts = mergedTranslated
+      .split(/\n\s*\n+/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    if (parts.length === group.indices.length) {
+      parts.forEach((text, idx) => {
+        const i = group.indices[idx];
+        results[i] = text;
+      });
+    } else {
+      // Nếu model không giữ số đoạn, fallback dịch từng đoạn trong group
+      const perSegment = await Promise.all(
+        group.indices.map((i) => translateWithGPT(texts[i] || "", targetLang)),
+      );
+      perSegment.forEach((text, idx) => {
+        const i = group.indices[idx];
+        results[i] = text;
+      });
+    }
+  }
+
+  return results;
 }
