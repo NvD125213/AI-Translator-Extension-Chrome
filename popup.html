@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
@@ -19,14 +19,19 @@
           type="password"
           id="apiKey"
           placeholder="sk-... hoặc key nhà cung cấp"
-          autocomplete="off"
-        />
-        <button type="button" id="toggleKey" class="btn-icon" title="Hiện/ẩn key">
+          autocomplete="off" />
+        <button
+          type="button"
+          id="toggleKey"
+          class="btn-icon"
+          title="Hiện/ẩn key">
           👁
         </button>
       </div>
       <p class="hint">Key được lưu an toàn trên thiết bị (Chrome Storage).</p>
-      <button type="button" id="saveKey" class="btn btn-primary">Lưu API Key</button>
+      <button type="button" id="saveKey" class="btn btn-primary">
+        Lưu API Key
+      </button>
       <p id="saveStatus" class="status" aria-live="polite"></p>
     </section>
 
@@ -38,11 +43,35 @@
         <option value="claude">Claude (Anthropic)</option>
         <option value="deepseek">DeepSeek</option>
       </select>
-      <label class="label" for="model" style="margin-top:12px">Model</label>
+      <label class="label" for="model" style="margin-top: 12px">Model</label>
       <select id="model" class="select"></select>
-      <p class="hint" style="margin-top:8px">Lưu lựa chọn vào Chrome Storage.</p>
-      <p class="provider-link-wrap" style="margin-top:10px">
-        Lấy API key: <a id="providerLink" href="#" target="_blank" rel="noopener" class="provider-link">—</a>
+      <p class="hint" style="margin-top: 8px">
+        Lưu lựa chọn vào Chrome Storage.
+      </p>
+
+      <label class="label" for="language" style="margin-top: 12px"
+        >Ngôn ngữ đích</label
+      >
+      <select id="language" class="select">
+        <option value="vi">Tiếng Việt</option>
+        <option value="en">Tiếng Anh</option>
+        <option value="ja">Tiếng Nhật</option>
+        <option value="ko">Tiếng Hàn</option>
+        <option value="zh">Tiếng Trung</option>
+        <option value="fr">Tiếng Pháp</option>
+        <option value="de">Tiếng Đức</option>
+      </select>
+
+      <p class="provider-link-wrap" style="margin-top: 10px">
+        Lấy API key:
+        <a
+          id="providerLink"
+          href="#"
+          target="_blank"
+          rel="noopener"
+          class="provider-link"
+          >—</a
+        >
       </p>
     </section>
 
@@ -56,7 +85,9 @@
         <span class="label">Số tiền đã tiêu (ước tính)</span>
         <span id="costDisplay" class="cost-display">$0.00</span>
       </div>
-      <button type="button" id="resetTokens" class="btn btn-ghost btn-sm">Đặt lại</button>
+      <button type="button" id="resetTokens" class="btn btn-ghost btn-sm">
+        Đặt lại
+      </button>
     </section>
 
     <section class="section actions">

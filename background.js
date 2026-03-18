@@ -26,7 +26,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // Dịch một đoạn (giữ tương thích cũ)
   if (msg.action === "translateSelection") {
     const text = msg.text || "";
-    translateWithGPT(text, "vi")
+    translateWithGPT(text)
       .then((translated) => {
         sendResponse({ translated });
       })
@@ -40,8 +40,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // Dịch nhiều đoạn: mảng texts → mảng translated (mỗi đoạn chèn dưới đúng block)
   if (msg.action === "translateSelections") {
     const texts = Array.isArray(msg.texts) ? msg.texts : [];
-    const targetLang = msg.targetLang || "vi";
-    translateSelectionsWithContext(texts, targetLang)
+    translateSelectionsWithContext(texts)
       .then((translated) => {
         sendResponse({ translated });
       })
@@ -56,6 +55,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 const STORAGE_KEY = "openai_api_key";
 const STORAGE_PROVIDER = "ai_translator_provider";
 const STORAGE_MODEL = "ai_translator_model";
+const STORAGE_LANG = "ai_translator_lang";
 const STORAGE_TOKEN_BY_PROVIDER = "token_usage_by_provider";
 const STORAGE_COST_BY_PROVIDER = "cost_by_provider";
 
@@ -67,9 +67,7 @@ const PRICING = {
     "gpt-3.5-turbo": { input: 0.5, output: 1.5 },
   },
   gemini: {
-    "gemini-1.5-flash": { input: 0.075, output: 0.3 },
-    "gemini-1.5-flash-8b": { input: 0.0375, output: 0.15 },
-    "gemini-1.5-pro": { input: 1.25, output: 5 },
+    "gemini-2.5-flash": { input: 0.3, output: 2.5 },
   },
   claude: {
     "claude-3-5-haiku-20241022": { input: 0.8, output: 4 },
@@ -133,16 +131,60 @@ async function addUsageByProvider(
   );
 }
 
-const SYSTEM_PROMPT = (targetLang) =>
-  `You are a professional translation engine. Translate the user text into ${targetLang} with these rules:
-- Preserve the original meaning as accurately as possible, do not summarize or add new ideas.
-- Make the translation natural and fluent in the target language, but do not over-simplify technical terms.
-- Keep names, brand names, code snippets, and URLs unchanged unless a localized form is clearly more appropriate.
-- For difficult terms, regional slang, and domain-specific technical jargon, prefer to KEEP the original English term (or include it in parentheses) if it improves clarity, instead of forcing an unnatural translation.
-- When a term has a well-known, precise translation in ${targetLang}, use that precise translation (and optionally keep the original term in parentheses if helpful).
-- Preserve important formatting such as line breaks and list structure when reasonable.
-- If the text is already in ${targetLang}, only clean up grammar and wording slightly if needed.
-Return ONLY the translated text, do NOT add explanations, quotes, or extra comments.`;
+// const SYSTEM_PROMPT = (targetLang) =>
+//   `You are a professional translation engine. Translate the user text into ${targetLang} with these rules:
+// - Preserve the original meaning as accurately as possible, do not summarize or add new ideas.
+// - Make the translation natural and fluent in the target language, but do not over-simplify technical terms.
+// - Maintain a consistent tone and terminology across the whole passage.
+// - Keep names, brand names, code snippets, and URLs unchanged unless a localized form is clearly more appropriate.
+// - For difficult terms, regional slang, and domain-specific technical jargon, prefer to KEEP the original English term (or include it in parentheses) if it improves clarity, instead of forcing an unnatural translation.
+// - When a term has a well-known, precise translation in ${targetLang}, use that precise translation (and optionally keep the original term in parentheses if helpful).
+// - Preserve important formatting such as line breaks and list structure when reasonable.
+// - If the text is already in ${targetLang}, only clean up grammar and wording slightly if needed.
+// Return ONLY the translated text, do NOT add explanations, quotes, or extra comments.`;
+
+const SYSTEM_PROMPT = (targetLang) => `
+You are a professional translation engine.
+
+Translate the user input into ${targetLang} following these strict rules:
+
+1. Accuracy:
+- Preserve the original meaning exactly. Do not add, remove, or infer information.
+
+2. Naturalness:
+- Make the translation fluent and natural in ${targetLang}.
+- Do NOT over-simplify or paraphrase unnecessarily.
+
+3. Terminology:
+- Use consistent terminology throughout the entire text.
+- If a well-established translation exists, use it.
+- If not, KEEP the original English term (or include it in parentheses).
+
+4. Do NOT translate:
+- Code snippets, variables, file names
+- URLs, emails
+- Brand names, product names
+- Text inside backticks (\`...\`) or code blocks
+
+5. Formatting:
+- Preserve original formatting:
+  - line breaks
+  - bullet points
+  - numbering
+  - markdown / HTML structure
+
+6. Mixed language:
+- Only translate the parts that are not already in ${targetLang}.
+- Do not unnecessarily alter already-correct text.
+
+7. Ambiguity handling:
+- If a term is ambiguous, choose the most common meaning in context.
+- Do NOT guess beyond the given text.
+
+8. Output constraint:
+- Return ONLY the translated text.
+- Do NOT add explanations, comments, or quotation marks.
+`;
 
 /** OpenAI: https://api.openai.com/v1/chat/completions */
 async function translateWithOpenAI(apiKey, model, text, targetLang) {
@@ -257,11 +299,17 @@ async function translateWithDeepSeek(apiKey, model, text, targetLang) {
   };
 }
 
-async function translateWithGPT(text, targetLang) {
-  const data = await getStorage([STORAGE_KEY, STORAGE_PROVIDER, STORAGE_MODEL]);
+async function translateWithGPT(text, targetLangOverride) {
+  const data = await getStorage([
+    STORAGE_KEY,
+    STORAGE_PROVIDER,
+    STORAGE_MODEL,
+    STORAGE_LANG,
+  ]);
   const apiKey = (data[STORAGE_KEY] || "").trim();
   const provider = data[STORAGE_PROVIDER] || "openai";
   const model = data[STORAGE_MODEL] || "gpt-4o-mini";
+  const targetLang = targetLangOverride || data[STORAGE_LANG] || "vi";
 
   if (!apiKey) {
     throw new Error("Chưa cấu hình API key. Mở popup để lưu API key.");
@@ -363,7 +411,7 @@ function groupTextsForContext(texts, maxCharsPerGroup = 600) {
 }
 
 // Dịch nhiều đoạn nhưng tận dụng context trong cùng một cụm
-async function translateSelectionsWithContext(texts, targetLang) {
+async function translateSelectionsWithContext(texts) {
   if (!Array.isArray(texts) || !texts.length) return [];
 
   const groups = groupTextsForContext(texts);
@@ -373,7 +421,7 @@ async function translateSelectionsWithContext(texts, targetLang) {
     // Group chỉ có 1 đoạn → dịch như cũ
     if (group.indices.length === 1) {
       const i = group.indices[0];
-      results[i] = await translateWithGPT(texts[i] || "", targetLang);
+      results[i] = await translateWithGPT(texts[i] || "");
       continue;
     }
 
@@ -381,11 +429,11 @@ async function translateSelectionsWithContext(texts, targetLang) {
     const mergedText = group.indices.map((i) => texts[i] || "").join("\n\n");
     let mergedTranslated;
     try {
-      mergedTranslated = await translateWithGPT(mergedText, targetLang);
+      mergedTranslated = await translateWithGPT(mergedText, "");
     } catch (e) {
       // Nếu lỗi, fallback dịch từng đoạn
       const perSegment = await Promise.all(
-        group.indices.map((i) => translateWithGPT(texts[i] || "", targetLang)),
+        group.indices.map((i) => translateWithGPT(texts[i] || "")),
       );
       perSegment.forEach((text, idx) => {
         const i = group.indices[idx];
@@ -408,7 +456,7 @@ async function translateSelectionsWithContext(texts, targetLang) {
     } else {
       // Nếu model không giữ số đoạn, fallback dịch từng đoạn trong group
       const perSegment = await Promise.all(
-        group.indices.map((i) => translateWithGPT(texts[i] || "", targetLang)),
+        group.indices.map((i) => translateWithGPT(texts[i] || "")),
       );
       perSegment.forEach((text, idx) => {
         const i = group.indices[idx];

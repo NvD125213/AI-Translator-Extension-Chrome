@@ -1,15 +1,25 @@
 const STORAGE_KEY = "openai_api_key";
 const STORAGE_PROVIDER = "ai_translator_provider";
 const STORAGE_MODEL = "ai_translator_model";
+const STORAGE_LANG = "ai_translator_lang";
 const STORAGE_TOKEN_BY_PROVIDER = "token_usage_by_provider";
 const STORAGE_COST_BY_PROVIDER = "cost_by_provider";
 
 /** Link lấy API key theo từng nhà cung cấp */
 const PROVIDER_API_LINKS = {
   openai: { url: "https://platform.openai.com/api-keys", label: "OpenAI" },
-  gemini: { url: "https://aistudio.google.com/apikey", label: "Google AI Studio" },
-  claude: { url: "https://console.anthropic.com/settings/keys", label: "Anthropic" },
-  deepseek: { url: "https://platform.deepseek.com/api_keys", label: "DeepSeek" },
+  gemini: {
+    url: "https://aistudio.google.com/apikey",
+    label: "Google AI Studio",
+  },
+  claude: {
+    url: "https://console.anthropic.com/settings/keys",
+    label: "Anthropic",
+  },
+  deepseek: {
+    url: "https://platform.deepseek.com/api_keys",
+    label: "DeepSeek",
+  },
 };
 
 const PROVIDER_MODELS = {
@@ -18,11 +28,7 @@ const PROVIDER_MODELS = {
     { value: "gpt-4o", label: "gpt-4o" },
     { value: "gpt-3.5-turbo", label: "gpt-3.5-turbo" },
   ],
-  gemini: [
-    { value: "gemini-1.5-flash", label: "gemini-1.5-flash" },
-    { value: "gemini-1.5-flash-8b", label: "gemini-1.5-flash-8b" },
-    { value: "gemini-1.5-pro", label: "gemini-1.5-pro" },
-  ],
+  gemini: [{ value: "gemini-2.5-flash", label: "gemini-2.5-flash" }],
   claude: [
     { value: "claude-3-5-haiku-20241022", label: "claude-3-5-haiku" },
     { value: "claude-3-haiku-20240307", label: "claude-3-haiku" },
@@ -42,6 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const translateBtn = document.getElementById("translateBtn");
   const providerSelect = document.getElementById("provider");
   const modelSelect = document.getElementById("model");
+  const languageSelect = document.getElementById("language");
   const tokenCountEl = document.getElementById("tokenCount");
   const costDisplayEl = document.getElementById("costDisplay");
   const resetTokensBtn = document.getElementById("resetTokens");
@@ -61,12 +68,20 @@ document.addEventListener("DOMContentLoaded", () => {
     return m ? m.label : modelValue;
   }
 
-  function updateProviderStats(provider, modelValue, tokenByProvider, costByProvider) {
+  function updateProviderStats(
+    provider,
+    modelValue,
+    tokenByProvider,
+    costByProvider,
+  ) {
     const label = getModelLabel(provider, modelValue);
     const providerName =
-      { openai: "OpenAI", gemini: "Gemini", claude: "Claude", deepseek: "DeepSeek" }[
-        provider
-      ] || provider;
+      {
+        openai: "OpenAI",
+        gemini: "Gemini",
+        claude: "Claude",
+        deepseek: "DeepSeek",
+      }[provider] || provider;
     currentModelLabel.innerHTML =
       "Model đang dùng: <strong>" + providerName + " / " + label + "</strong>";
     const tokens =
@@ -104,6 +119,7 @@ document.addEventListener("DOMContentLoaded", () => {
         STORAGE_KEY,
         STORAGE_PROVIDER,
         STORAGE_MODEL,
+        STORAGE_LANG,
         STORAGE_TOKEN_BY_PROVIDER,
         STORAGE_COST_BY_PROVIDER,
       ],
@@ -118,22 +134,29 @@ document.addEventListener("DOMContentLoaded", () => {
         fillModelSelect(provider);
         updateProviderLink(provider);
         if (data[STORAGE_MODEL]) modelSelect.value = data[STORAGE_MODEL];
+        if (languageSelect) {
+          const lang = data[STORAGE_LANG] || "vi";
+          languageSelect.value = lang;
+        }
         const tokenByProvider = data[STORAGE_TOKEN_BY_PROVIDER] || {};
         const costByProvider = data[STORAGE_COST_BY_PROVIDER] || {};
         updateProviderStats(
           provider,
           modelSelect.value,
           tokenByProvider,
-          costByProvider
+          costByProvider,
         );
-      }
+      },
     );
   }
 
   loadStorage();
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
-    if (changes[STORAGE_TOKEN_BY_PROVIDER] || changes[STORAGE_COST_BY_PROVIDER]) {
+    if (
+      changes[STORAGE_TOKEN_BY_PROVIDER] ||
+      changes[STORAGE_COST_BY_PROVIDER]
+    ) {
       chrome.storage.local.get(
         [STORAGE_TOKEN_BY_PROVIDER, STORAGE_COST_BY_PROVIDER],
         (data) => {
@@ -141,9 +164,9 @@ document.addEventListener("DOMContentLoaded", () => {
             providerSelect.value,
             modelSelect.value,
             data[STORAGE_TOKEN_BY_PROVIDER] || {},
-            data[STORAGE_COST_BY_PROVIDER] || {}
+            data[STORAGE_COST_BY_PROVIDER] || {},
           );
-        }
+        },
       );
     }
   });
@@ -164,9 +187,9 @@ document.addEventListener("DOMContentLoaded", () => {
           provider,
           modelValue,
           data[STORAGE_TOKEN_BY_PROVIDER] || {},
-          data[STORAGE_COST_BY_PROVIDER] || {}
+          data[STORAGE_COST_BY_PROVIDER] || {},
         );
-      }
+      },
     );
   });
 
@@ -180,9 +203,9 @@ document.addEventListener("DOMContentLoaded", () => {
           providerSelect.value,
           modelValue,
           data[STORAGE_TOKEN_BY_PROVIDER] || {},
-          data[STORAGE_COST_BY_PROVIDER] || {}
+          data[STORAGE_COST_BY_PROVIDER] || {},
         );
-      }
+      },
     );
   });
 
@@ -230,14 +253,24 @@ document.addEventListener("DOMContentLoaded", () => {
               provider,
               modelSelect.value,
               tokenByProvider,
-              costByProvider
+              costByProvider,
             );
-            setStatus("Đã đặt lại token & số tiền (nhà cung cấp này).", "success");
-          }
+            setStatus(
+              "Đã đặt lại token & số tiền (nhà cung cấp này).",
+              "success",
+            );
+          },
         );
-      }
+      },
     );
   });
+
+  if (languageSelect) {
+    languageSelect.addEventListener("change", () => {
+      const lang = languageSelect.value || "vi";
+      chrome.storage.local.set({ [STORAGE_LANG]: lang });
+    });
+  }
 
   translateBtn.addEventListener("click", async () => {
     try {
